@@ -152,16 +152,16 @@ const char *intern_str(const char *str)
     return intern;
 }
 
-
 const char *intern_strn(const char *str, size_t len)
 {
     if (!str) return NULL;
     // GC_MALLOC_ATOMIC() means this memory doesn't need to be scanned by the GC
     char *copy = GC_MALLOC_ATOMIC(len + 1);
     memcpy(copy, str, len);
-    const char *intern = lookup(str, len);
+    copy[len] = '\0';
+    const char *intern = lookup(str, len + 1);
     if (!intern) {
-        intern_insert(copy, len);
+        intern_insert(copy, len + 1);
         intern = copy;
     }
     if (!recently_used)
