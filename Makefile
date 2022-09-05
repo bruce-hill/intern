@@ -16,6 +16,14 @@ libintern.so: intern.c
 clean:
 	rm -f libintern.so
 
+test: test.c libintern.so
+	cc $(ALL_FLAGS) -L./ -lintern test.c -o test
+	./test
+
+profile: profile.c libintern.so
+	cc $(ALL_FLAGS) -L./ -lintern profile.c -o profile
+	./profile 10 1000
+
 install: libintern.so
 	mkdir -p -m 755 "$(PREFIX)/lib" "$(PREFIX)/include"
 	cp libintern.so "$(PREFIX)/lib"

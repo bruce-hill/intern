@@ -11,3 +11,5 @@ const char *intern_str(const char *str);
 // Intern a length-delimited string (automatically appending a terminating NUL byte)
 // (Useful for interning a slice of a string)
 const char *intern_strn(const char *str, size_t len);
+// Randomize the hash function used for interning
+void randomize_hash(void);

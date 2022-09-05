@@ -3,6 +3,7 @@
 #include <gc.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/random.h>
 
 typedef struct intern_entry_s {
     char *mem;
@@ -14,25 +15,52 @@ static intern_entry_t *interned = NULL, *lastfree = NULL;
 static size_t intern_capacity = 0, intern_count = 0;
 
 // Cache most recently used strings to prevent GC churn
+#ifndef N_RECENTLY_USED
 #define N_RECENTLY_USED 256
+#endif
 static const char **recently_used = NULL;
 static int recently_used_i = 0;
 
 static void intern_insert(char *mem, size_t len);
+static void rehash(void);
 
-static size_t hash_mem(const char *mem, size_t len)
+#ifdef NOSIPHASH
+static size_t initial_hash = 0;
+void randomize_hash(void) {
+    getrandom(&initial_hash, sizeof(initial_hash), 0);
+    rehash();
+}
+
+static inline size_t hash_mem(const char *mem, size_t len)
 {
     if (__builtin_expect(len == 0, 0)) return 0;
     register unsigned char *p = (unsigned char *)mem;
-    register size_t h = (size_t)(*p << 7) ^ len;
+    register size_t h = (size_t)(*p << 7) ^ len ^ initial_hash;
     register size_t i = len > 128 ? 128 : len;
     while (i--)
         h = (1000003*h) ^ *p++;
     if (h == 0) h = 1234567;
     return h;
 }
+#else
+#include "SipHash/halfsiphash.h"
+#include "SipHash/halfsiphash.c"
 
-static void rehash()
+static uint8_t hash_random_vector[16] = {42,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+void randomize_hash(void) {
+    getrandom(hash_random_vector, sizeof(hash_random_vector), 0);
+    rehash();
+}
+
+static size_t hash_mem(const char *mem, size_t len)
+{
+    size_t hash;
+    halfsiphash(mem, len, hash_random_vector, (uint8_t*)&hash, sizeof(hash));
+    return hash;
+}
+#endif
+
+static void rehash(void)
 {
     // Calculate new size to be min(16, next_highest_power_of_2(2 * num_entries))
     size_t new_size = 0;

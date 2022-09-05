@@ -1,7 +1,8 @@
 # Intern
 
 A minimalist string (or arbitrary data) interning library meant to work with
-the Boehm garbage collector.
+the Boehm garbage collector. The interning uses
+[SipHash](https://en.wikipedia.org/wiki/SipHash) for fast and secure hashing.
 
 ## API
 
@@ -13,6 +14,8 @@ const char *intern_str(const char *str);
 // Intern a length-delimited string (automatically appending a terminating NUL byte)
 // (Useful for interning a slice of a string)
 const char *intern_strn(const char *str, size_t len);
+// Randomize the hash function used for interning
+void randomize_hash(void);
 ```
 
 ## Usage
