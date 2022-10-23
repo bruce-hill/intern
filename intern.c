@@ -166,13 +166,13 @@ const void *intern_bytes(const void *bytes, size_t len)
 istr_t intern_str(const char *str)
 {
     if (!str) return NULL;
-    size_t len = strlen(str) + 1;
-    istr_t intern = lookup(str, len);
+    size_t bytes = strlen(str) + 1;
+    istr_t intern = lookup(str, bytes);
     if (!intern) {
         // GC_MALLOC_ATOMIC() means this memory doesn't need to be scanned by the GC
-        char *tmp = GC_MALLOC_ATOMIC(len);
-        memcpy(tmp, str, len);
-        intern_insert(tmp, len);
+        char *tmp = GC_MALLOC_ATOMIC(bytes);
+        memcpy(tmp, str, bytes);
+        intern_insert(tmp, bytes);
         intern = tmp;
     }
     if (!recently_used)
@@ -185,13 +185,14 @@ istr_t intern_str(const char *str)
 istr_t intern_strn(const char *str, size_t len)
 {
     if (!str) return NULL;
+    size_t bytes = len + 1;
     // GC_MALLOC_ATOMIC() means this memory doesn't need to be scanned by the GC
-    char *copy = GC_MALLOC_ATOMIC(len + 1);
+    char *copy = GC_MALLOC_ATOMIC(bytes);
     memcpy(copy, str, len);
     copy[len] = '\0';
-    istr_t intern = lookup(str, len + 1);
+    istr_t intern = lookup(copy, bytes);
     if (!intern) {
-        intern_insert(copy, len + 1);
+        intern_insert(copy, bytes);
         intern = copy;
     }
     if (!recently_used)
