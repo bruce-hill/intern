@@ -5,6 +5,8 @@
 #include <string.h>
 #include <sys/random.h>
 
+#include "intern.h"
+
 typedef struct intern_entry_s {
     char *mem;
     size_t len;
@@ -144,7 +146,7 @@ static void intern_insert(char *mem, size_t len)
     ++intern_count;
 }
 
-const void *intern_bytes(const char *bytes, size_t len)
+const void *intern_bytes(const void *bytes, size_t len)
 {
     if (!bytes) return NULL;
     const char *intern = lookup(bytes, len);
@@ -161,11 +163,11 @@ const void *intern_bytes(const char *bytes, size_t len)
     return intern;
 }
 
-const char *intern_str(const char *str)
+istr_t intern_str(const char *str)
 {
     if (!str) return NULL;
     size_t len = strlen(str) + 1;
-    const char *intern = lookup(str, len);
+    istr_t intern = lookup(str, len);
     if (!intern) {
         // GC_MALLOC_ATOMIC() means this memory doesn't need to be scanned by the GC
         char *tmp = GC_MALLOC_ATOMIC(len);
@@ -180,14 +182,14 @@ const char *intern_str(const char *str)
     return intern;
 }
 
-const char *intern_strn(const char *str, size_t len)
+istr_t intern_strn(const char *str, size_t len)
 {
     if (!str) return NULL;
     // GC_MALLOC_ATOMIC() means this memory doesn't need to be scanned by the GC
     char *copy = GC_MALLOC_ATOMIC(len + 1);
     memcpy(copy, str, len);
     copy[len] = '\0';
-    const char *intern = lookup(str, len + 1);
+    istr_t intern = lookup(str, len + 1);
     if (!intern) {
         intern_insert(copy, len + 1);
         intern = copy;
