@@ -152,7 +152,9 @@ const void *intern_bytes(const void *bytes, size_t len)
     const char *intern = lookup(bytes, len);
     if (!intern) {
         // GC_MALLOC() means this may contain pointers to other stuff to keep alive in GC
-        char *tmp = GC_MALLOC(len);
+        char *tmp = GC_MALLOC(sizeof(size_t) + len + 1);
+        *(size_t*)tmp = len;
+        tmp += sizeof(size_t);
         memcpy(tmp, bytes, len);
         intern_insert(tmp, len);
         intern = tmp;
@@ -163,37 +165,29 @@ const void *intern_bytes(const void *bytes, size_t len)
     return intern;
 }
 
+size_t intern_len(const char *str)
+{
+    istr_t istr = intern_str(str);
+    return ((size_t*)istr)[-1];
+}
+
 istr_t intern_str(const char *str)
 {
-    if (!str) return NULL;
-    size_t bytes = strlen(str) + 1;
-    istr_t intern = lookup(str, bytes);
-    if (!intern) {
-        // GC_MALLOC_ATOMIC() means this memory doesn't need to be scanned by the GC
-        char *tmp = GC_MALLOC_ATOMIC(bytes);
-        memcpy(tmp, str, bytes);
-        intern_insert(tmp, bytes);
-        intern = tmp;
-    }
-    if (!recently_used)
-        recently_used = GC_MALLOC_UNCOLLECTABLE(sizeof(char*)*N_RECENTLY_USED);
-    recently_used[recently_used_i] = intern;
-    recently_used_i = (recently_used_i + 1) & (N_RECENTLY_USED-1);
-    return intern;
+    return intern_strn(str, strlen(str));
 }
 
 istr_t intern_strn(const char *str, size_t len)
 {
     if (!str) return NULL;
-    size_t bytes = len + 1;
-    // GC_MALLOC_ATOMIC() means this memory doesn't need to be scanned by the GC
-    char *copy = GC_MALLOC_ATOMIC(bytes);
-    memcpy(copy, str, len);
-    copy[len] = '\0';
-    istr_t intern = lookup(copy, bytes);
+    istr_t intern = lookup(str, len);
     if (!intern) {
-        intern_insert(copy, bytes);
-        intern = copy;
+        // GC_MALLOC_ATOMIC() means this memory doesn't need to be scanned by the GC
+        char *tmp = GC_MALLOC_ATOMIC(sizeof(size_t) + len + 1);
+        *(size_t*)tmp = len;
+        tmp += sizeof(size_t);
+        memcpy(tmp, str, len);
+        intern_insert(tmp, len);
+        intern = tmp;
     }
     if (!recently_used)
         recently_used = GC_MALLOC_UNCOLLECTABLE(sizeof(char*)*N_RECENTLY_USED);
