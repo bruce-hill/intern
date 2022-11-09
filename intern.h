@@ -13,6 +13,9 @@ istr_t intern_str(const char *str);
 // Intern a length-delimited string (automatically appending a terminating NUL byte)
 // (Useful for interning a slice of a string)
 istr_t intern_strn(const char *str, size_t len);
+// Intern a string formatted with printf-style formatting
+__attribute__((format(printf,1,2)))
+istr_t intern_strf(const char *fmt, ...);
 // Get the size of an interned object (faster than strlen(), doesn't rely on NUL termination)
 size_t intern_len(const char *str);
 // Randomize the hash function used for interning

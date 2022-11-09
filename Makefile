@@ -17,7 +17,7 @@ clean:
 	rm -f libintern.so
 
 test: test.c libintern.so
-	cc $(ALL_FLAGS) -L./ -lintern test.c -o test
+	cc $(ALL_FLAGS) -Wl,-rpath,$(PWD)/ -L$(PWD)/ -lintern test.c -o test
 	./test
 
 profile: profile.c libintern.so

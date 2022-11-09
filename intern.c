@@ -1,6 +1,8 @@
 // Code for interning chunks of data in a way compatible with the Boehm garbage collector
 #include <assert.h>
 #include <gc.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/random.h>
@@ -105,7 +107,7 @@ static char *lookup(const char *mem, size_t len)
 
 static void intern_insert(char *mem, size_t len)
 {
-    if (!mem || len == 0) return;
+    if (!mem) return;
 
     // Grow the storage if necessary
     if ((intern_count + 1) >= intern_capacity)
@@ -156,6 +158,7 @@ const void *intern_bytes(const void *bytes, size_t len)
         *(size_t*)tmp = len;
         tmp += sizeof(size_t);
         memcpy(tmp, bytes, len);
+        tmp[len] = '\0';
         intern_insert(tmp, len);
         intern = tmp;
     }
@@ -186,6 +189,7 @@ istr_t intern_strn(const char *str, size_t len)
         *(size_t*)tmp = len;
         tmp += sizeof(size_t);
         memcpy(tmp, str, len);
+        tmp[len] = '\0';
         intern_insert(tmp, len);
         intern = tmp;
     }
@@ -194,4 +198,17 @@ istr_t intern_strn(const char *str, size_t len)
     recently_used[recently_used_i] = intern;
     recently_used_i = (recently_used_i + 1) & (N_RECENTLY_USED-1);
     return intern;
+}
+
+istr_t intern_strf(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    char *tmp = NULL;
+    int len = vasprintf(&tmp, fmt, args);
+    if (len < 0) return NULL;
+    va_end(args);
+    istr_t ret = intern_strn(tmp, (size_t)len);
+    free(tmp);
+    return ret;
 }
