@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <gc.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

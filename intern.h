@@ -3,6 +3,7 @@
 // Interned values are garbage collected using the Boehm garbage collector (not
 // immortal), but the most recently interned items are kept in memory to
 // prevent churn.
+#include <stddef.h>
 
 typedef const char* istr_t;
 
