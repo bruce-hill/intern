@@ -11,8 +11,10 @@
 #include "intern.h"
 
 typedef struct intern_entry_s {
-    char *mem;
+    char *mem; // Pointer to interned memory, may be zeroed out by GC
     size_t len;
+    // Memoized hash value (we can't rehash if GC collects the memory)
+    int home; // hash value & (intern_capacity-1)
     struct intern_entry_s *next;
 } intern_entry_t;
 
@@ -26,6 +28,8 @@ static size_t intern_capacity = 0, intern_count = 0;
 static const char **recently_used = NULL;
 static int recently_used_i = 0;
 
+// Special case for zero-width interns, no need to track it in the hash map:
+static char empty = '\0';
 static void intern_insert(char *mem, size_t len);
 static void rehash(void);
 
@@ -108,7 +112,7 @@ static char *lookup(const char *mem, size_t len)
 
 static void intern_insert(char *mem, size_t len)
 {
-    if (!mem) return;
+    if (!mem || len == 0) return;
 
     // Grow the storage if necessary
     if ((intern_count + 1) >= intern_capacity)
@@ -116,10 +120,11 @@ static void intern_insert(char *mem, size_t len)
 
     int i = (int)(hash_mem(mem, len) & (size_t)(intern_capacity-1));
     intern_entry_t *collision = &interned[i];
-    if (!collision->mem) { // No collision
+    if (!collision->mem && !collision->next) { // No collision
         collision->mem = (char*)GC_HIDE_POINTER(mem);
         GC_general_register_disappearing_link((void**)&collision->mem, mem);
         collision->len = len;
+        collision->home = i;
         ++intern_count;
         return;
     }
@@ -127,15 +132,16 @@ static void intern_insert(char *mem, size_t len)
     while (lastfree >= interned && lastfree->len)
         --lastfree;
 
-    int i2 = (int)(hash_mem(GC_REVEAL_POINTER(collision->mem), collision->len) & (size_t)(intern_capacity-1));
-    if (i2 == i) { // Collision with element in its main position
+    if (collision->home == i) { // Collision with element in its main position
         lastfree->mem = (char*)GC_HIDE_POINTER(mem);
         GC_general_register_disappearing_link((void**)&lastfree->mem, mem);
         lastfree->len = len;
+        lastfree->home = i;
         lastfree->next = collision->next;
         collision->next = lastfree;
-    } else {
-        intern_entry_t *prev = &interned[i2];
+    } else { // Collision with element in a makeshift spot
+        // Find the previous linked list node:
+        intern_entry_t *prev = &interned[collision->home];
         while (prev->next != collision)
             prev = prev->next;
         memcpy(lastfree, collision, sizeof(intern_entry_t));
@@ -144,6 +150,7 @@ static void intern_insert(char *mem, size_t len)
         collision->mem = (char*)GC_HIDE_POINTER(mem);
         GC_general_register_disappearing_link((void**)&collision->mem, mem);
         collision->len = len;
+        collision->home = i;
         collision->next = NULL;
     }
     ++intern_count;
@@ -152,6 +159,7 @@ static void intern_insert(char *mem, size_t len)
 const void *intern_bytes(const void *bytes, size_t len)
 {
     if (!bytes) return NULL;
+    if (len == 0) return &empty;
     const char *intern = lookup(bytes, len);
     if (!intern) {
         // GC_MALLOC() means this may contain pointers to other stuff to keep alive in GC
@@ -184,6 +192,7 @@ istr_t intern_str(const char *str)
 istr_t intern_strn(const char *str, size_t len)
 {
     if (!str) return NULL;
+    if (len == 0) return &empty;
     istr_t intern = lookup(str, len);
     if (!intern) {
         // GC_MALLOC_ATOMIC() means this memory doesn't need to be scanned by the GC
