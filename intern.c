@@ -118,7 +118,7 @@ static void intern_insert(char *mem, size_t len)
     intern_entry_t *collision = &interned[i];
     if (!collision->mem) { // No collision
         collision->mem = (char*)GC_HIDE_POINTER(mem);
-        assert(!GC_general_register_disappearing_link((void**)&collision->mem, mem));
+        GC_general_register_disappearing_link((void**)&collision->mem, mem);
         collision->len = len;
         ++intern_count;
         return;
@@ -130,7 +130,7 @@ static void intern_insert(char *mem, size_t len)
     int i2 = (int)(hash_mem(GC_REVEAL_POINTER(collision->mem), collision->len) & (size_t)(intern_capacity-1));
     if (i2 == i) { // Collision with element in its main position
         lastfree->mem = (char*)GC_HIDE_POINTER(mem);
-        assert(!GC_general_register_disappearing_link((void**)&lastfree->mem, mem));
+        GC_general_register_disappearing_link((void**)&lastfree->mem, mem);
         lastfree->len = len;
         lastfree->next = collision->next;
         collision->next = lastfree;
@@ -139,10 +139,10 @@ static void intern_insert(char *mem, size_t len)
         while (prev->next != collision)
             prev = prev->next;
         memcpy(lastfree, collision, sizeof(intern_entry_t));
-        assert(!GC_move_disappearing_link((void**)&collision->mem, (void**)&lastfree->mem));
+        GC_move_disappearing_link((void**)&collision->mem, (void**)&lastfree->mem);
         prev->next = lastfree;
         collision->mem = (char*)GC_HIDE_POINTER(mem);
-        assert(!GC_general_register_disappearing_link((void**)&collision->mem, mem));
+        GC_general_register_disappearing_link((void**)&collision->mem, mem);
         collision->len = len;
         collision->next = NULL;
     }
@@ -163,7 +163,8 @@ const void *intern_bytes(const void *bytes, size_t len)
         intern_insert(tmp, len);
         intern = tmp;
     }
-    if (!recently_used) recently_used = GC_MALLOC(sizeof(char*)*N_RECENTLY_USED);
+    if (!recently_used)
+        recently_used = GC_MALLOC_UNCOLLECTABLE(sizeof(char*)*N_RECENTLY_USED);
     recently_used[recently_used_i] = intern;
     recently_used_i = (recently_used_i + 1) & (N_RECENTLY_USED-1);
     return intern;
